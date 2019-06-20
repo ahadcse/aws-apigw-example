@@ -1,0 +1,121 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Sample AWS API Gateway example implemenation.
+
+Parameters:
+  Environment:
+    Type: String
+  Service:
+    Type: String
+  Swagger:
+    Type: String
+
+Globals:
+  Function:
+    Runtime: nodejs8.10
+    Timeout: 300
+    Handler: index.handler
+    MemorySize: 1024
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+Mappings:
+  dev:
+    api:
+      domainname: dev-domain.com
+  test:
+    api:
+      domainname: test-domain.com
+  prod:
+    api:
+      domainname: prod-domain.com
+
+Resources:
+
+  GetResponseForApiLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${Service}-lambdaForApiResponse
+      CodeUri: ../src/getResponse
+      Description: Get reponse for Api
+      Role: !GetAtt GetResponseForApiLambdaRole.Arn
+
+  GetResponseForApiLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${Service}-lambdaForApiResponse
+
+  GetResponseForApiLambdaLogGroupSubscriptionFilter:
+    Type: AWS::Logs::SubscriptionFilter
+    DependsOn:
+      - GetResponseForApiLambdaLogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${Service}-lambdaForApiResponse
+
+  GetResponseForApiLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Path: /
+      Policies:
+        - PolicyName: logs
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+      RoleName: !Sub GetResponseForApiLambdaRole
+
+  SampleApiRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: '/'
+      Policies:
+        - PolicyName: LambdaInvokePolicy
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt GetResponseForApiLambda.Arn
+
+  SampleApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      DefinitionBody:
+        Fn::Transform:
+          Name: AWS::Include
+          Parameters:
+            Location: !Ref Swagger
+
+  BasePath:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      BasePath: sample-api
+      DomainName:
+        Fn::FindInMap: [!Ref Environment, api, domainname]
+      RestApiId: !Ref SampleApi
+      Stage: !Ref SampleApi.Stage

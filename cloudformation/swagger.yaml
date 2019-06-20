@@ -1,0 +1,104 @@
+swagger: '2.0'
+info:
+  description: The API of the aws-apigw-example
+  version: '0.1'
+  title: aws-apigw-example
+  contact:
+    email: ahadcse@live.com
+
+paths:
+  /samplepath/{pathParam}:
+    get:
+      produces:
+        - application/json
+      description: Sample path
+      parameters:
+        - in: path
+          name: pathParam
+          required: true
+          type: string
+          minimum: 1
+          description: Sample path parameter
+      responses:
+        200:
+          description: Sample Response
+          schema:
+            $ref: '#/definitions/SampleResponse'
+        400:
+          description: Bad Request
+          schema:
+            $ref: "#/definitions/ErrorMessage"
+        500:
+          description: Internal Server Error
+          schema:
+            $ref: "#/definitions/ErrorMessage"
+      security:
+        - sigv4: []
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${Service}-lambdaForApiResponse/invocations
+        credentials:
+          Fn::Sub: ${SampleApiRole.Arn}
+        httpMethod: POST
+        responses:
+          4\d{2}:
+            statusCode: 400
+            responseTemplates:
+              application/json: "{ \"message\": $input.json(\"$.message\") }"
+          default:
+            statusCode: 200
+            responseTemplates:
+              application/json: "{ \"message\": \"Success\" }"
+
+securityDefinitions:
+
+  sigv4:
+    type: "apiKey"
+    name: "Authorization"
+    in: "header"
+    x-amazon-apigateway-authtype: "awsSigv4"
+
+definitions:
+
+  SampleResponse:
+    type: object
+    required:
+      - attribute1
+      - attribute2
+      - attribute3
+    properties:
+      attribute1:
+        description: Attribute 1
+        type: string
+      attribute2:
+        description: Attribute 2
+        type: string
+      attribute3:
+        type: array
+        items:
+          $ref: '#/definitions/Obj'
+
+  Obj:
+    type: object
+    required:
+      - att1
+      - att2
+    properties:
+      att1:
+        type: string
+      att2:
+        type: integer
+
+  ErrorMessage:
+    type: object
+    properties:
+      statusCode:
+        type: number
+        description: Error Code
+      message:
+        type: string
+        description: Reason for Error
+
+schemes:
+  - https
