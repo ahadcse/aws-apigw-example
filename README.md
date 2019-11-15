@@ -1,5 +1,8 @@
 # AWS API Gateway example
 
+## Architecture
+![Stack architecture](aws-apigw-example.png)
+
 ## Pre Requisite:
 
 1. Node
@@ -49,3 +52,6 @@ Parameters:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
         - !Sub arn:aws:iam::${AWS::AccountId}:policy/aws-apigw-example-fullaccess
   ```
+
+### TODO:
+    Architecture Diagram
